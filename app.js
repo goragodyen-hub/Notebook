@@ -44,11 +44,18 @@ function setupEventListeners() {
 
     // Hamburger Menu Toggle
     const btnMenu = document.getElementById('menu-toggle-btn');
+    const btnCloseSidebar = document.getElementById('close-sidebar-btn');
     const sidebar = document.querySelector('.sidebar');
     
     if (btnMenu && sidebar) {
         btnMenu.addEventListener('click', () => {
             sidebar.classList.toggle('open');
+        });
+    }
+    
+    if (btnCloseSidebar && sidebar) {
+        btnCloseSidebar.addEventListener('click', () => {
+            sidebar.classList.remove('open');
         });
     }
 }

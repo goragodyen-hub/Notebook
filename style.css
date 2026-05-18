@@ -195,6 +195,25 @@ h1 {
     background: var(--bg-secondary);
 }
 
+.btn-close-sidebar {
+    background: transparent;
+    color: var(--text-primary);
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    display: none; /* Hidden on desktop */
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    transition: background 0.2s;
+}
+
+.btn-close-sidebar:hover {
+    background: rgba(255,255,255,0.1);
+}
+
 /* Main Layout */
 .main-layout {
     display: grid;
@@ -509,6 +528,9 @@ h1 {
         transform: translateX(0);
     }
     .btn-menu {
+        display: flex; /* Show on mobile */
+    }
+    .btn-close-sidebar {
         display: flex; /* Show on mobile */
     }
 }
