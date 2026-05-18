@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kiosk Real-time Status Dashboard</title>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- PapaParse for CSV parsing -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <!-- Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <link rel="stylesheet" href="style.css">
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="logo.png">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header Section -->
+        <header class="header glass-panel">
+            <div class="header-left">
+                <div class="logo-box">
+                    <i class="fa-solid fa-desktop"></i>
+                </div>
+                <div>
+                    <h1>Kiosk Status Dashboard</h1>
+                    <p class="subtitle">Real-time Device Monitoring System</p>
+                </div>
+            </div>
+            
+            <div class="header-stats">
+                <div class="stat-card">
+                    <div class="stat-value" id="total-machines">0</div>
+                    <div class="stat-label">Total Kiosks</div>
+                </div>
+                <div class="stat-card active-stat">
+                    <div class="stat-value" id="active-machines">0</div>
+                    <div class="stat-label">In Use</div>
+                </div>
+            </div>
+
+            <div class="header-right">
+                <div class="refresh-indicator">
+                    <span class="pulse-dot"></span>
+                    <span id="last-update">Updating...</span>
+                </div>
+                <button id="force-refresh-btn" class="btn-refresh" title="Refresh Now">
+                    <i class="fa-solid fa-rotate-right"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <div class="main-layout">
+            <!-- Machine Grid -->
+            <main class="machines-container">
+                <div class="section-header">
+                    <h2><i class="fa-solid fa-server"></i> Terminal Status</h2>
+                    <div class="filter-controls">
+                        <button class="filter-btn active" data-filter="all">All</button>
+                        <button class="filter-btn" data-filter="in-use">In Use</button>
+                        <button class="filter-btn" data-filter="available">Available</button>
+                    </div>
+                </div>
+                
+                <!-- Loading State -->
+                <div id="loading-state" class="loading-state">
+                    <div class="spinner"></div>
+                    <p>Fetching real-time data from Google Sheets...</p>
+                </div>
+
+                <!-- Grid -->
+                <div id="machines-grid" class="machines-grid">
+                    <!-- Cards will be injected here by JS -->
+                </div>
+            </main>
+
+            <!-- Sidebar / Recent Logs -->
+            <aside class="sidebar glass-panel">
+                <div class="section-header">
+                    <h2><i class="fa-solid fa-clock-rotate-left"></i> Recent Activity</h2>
+                </div>
+                <div id="activity-feed" class="activity-feed">
+                    <!-- Logs injected here -->
+                </div>
+            </aside>
+        </div>
+    </div>
+
+    <!-- Template for Machine Card (Hidden) -->
+    <template id="machine-card-template">
+        <div class="machine-card glass-panel">
+            <div class="card-header">
+                <h3 class="machine-name">PC-01</h3>
+                <span class="status-badge">Available</span>
+            </div>
+            <div class="card-body">
+                <div class="info-row user-info">
+                    <i class="fa-solid fa-user"></i>
+                    <span class="user-name">-</span>
+                </div>
+                <div class="info-row time-info">
+                    <i class="fa-regular fa-clock"></i>
+                    <span class="last-action-time">-</span>
+                </div>
+                <div class="info-row detail-info">
+                    <i class="fa-solid fa-circle-info"></i>
+                    <span class="action-detail">-</span>
+                </div>
+            </div>
+            <div class="card-footer">
+                <span class="action-type">Logout</span>
+            </div>
+        </div>
+    </template>
+
+    <script src="app.js"></script>
+</body>
+</html>
