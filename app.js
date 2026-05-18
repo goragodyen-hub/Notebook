@@ -41,6 +41,16 @@ function setupEventListeners() {
             renderGrid();
         });
     });
+
+    // Hamburger Menu Toggle
+    const btnMenu = document.getElementById('menu-toggle-btn');
+    const sidebar = document.querySelector('.sidebar');
+    
+    if (btnMenu && sidebar) {
+        btnMenu.addEventListener('click', () => {
+            sidebar.classList.toggle('open');
+        });
+    }
 }
 
 function fetchData() {

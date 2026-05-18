@@ -177,6 +177,24 @@ h1 {
     transform: rotate(180deg);
 }
 
+.btn-menu {
+    background: transparent;
+    color: var(--text-primary);
+    border: 1px solid var(--panel-border);
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: none; /* Hidden on desktop */
+    align-items: center;
+    justify-content: center;
+}
+
+.btn-menu:hover {
+    background: var(--bg-secondary);
+}
+
 /* Main Layout */
 .main-layout {
     display: grid;
@@ -469,11 +487,29 @@ h1 {
 
 /* Responsive */
 @media (max-width: 1024px) {
+    .app-container {
+        height: auto;
+        min-height: 100vh;
+    }
     .main-layout {
         grid-template-columns: 1fr;
     }
     .sidebar {
-        height: 400px; /* fixed height when stacked */
+        position: fixed;
+        right: 0;
+        top: 0;
+        height: 100vh;
+        width: 350px;
+        transform: translateX(100%);
+        transition: transform 0.3s ease;
+        z-index: 1000;
+        box-shadow: -10px 0 30px rgba(0,0,0,0.5);
+    }
+    .sidebar.open {
+        transform: translateX(0);
+    }
+    .btn-menu {
+        display: flex; /* Show on mobile */
     }
 }
 
