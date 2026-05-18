@@ -71,15 +71,16 @@ body {
 }
 
 .logo-box {
-    background: linear-gradient(135deg, var(--accent-blue), #2563eb);
-    width: 48px;
-    height: 48px;
+    width: 56px;
+    height: 56px;
     border-radius: 12px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 24px;
+    overflow: hidden;
     box-shadow: 0 0 20px var(--accent-blue-glow);
+    background: transparent;
+    border: 1px solid var(--panel-border);
 }
 
 h1 {
