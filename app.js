@@ -6,6 +6,8 @@
 // URL from the user: "https://docs.google.com/spreadsheets/d/1HLZrbQWCaO_DngdbLmA87yklixChyjj1aK3FbbjksXU/edit?usp=sharing"
 // Export link for CSV:
 const SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/1HLZrbQWCaO_DngdbLmA87yklixChyjj1aK3FbbjksXU/gviz/tq?tqx=out:csv&sheet=SessionLogs";
+const DEVICES_CSV_URL = "https://docs.google.com/spreadsheets/d/1HLZrbQWCaO_DngdbLmA87yklixChyjj1aK3FbbjksXU/gviz/tq?tqx=out:csv&sheet=Devices";
+const LOG_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwTHEnz86gbbqxqkuHfb2PV5m_JkboLwzPYfcV5YW1m_DHTWNnNZBQNcpLfkhZsEwZVdQ/exec";
 
 // State
 let machinesData = new Map(); // Key: machineName, Value: latestLogObj
@@ -63,26 +65,102 @@ function setupEventListeners() {
 function fetchData() {
     lastUpdateEl.textContent = "Fetching...";
     
-    // Add a cache-buster to ensure we get fresh data
-    const url = `${SHEET_CSV_URL}&_cb=${new Date().getTime()}`;
+    const cb = new Date().getTime();
+    const sessionLogsUrl = `${SHEET_CSV_URL}&_cb=${cb}`;
+    const devicesUrl = `${DEVICES_CSV_URL}&_cb=${cb}`;
     
-    Papa.parse(url, {
+    // Fetch Devices status first to get the heartbeats (Last Seen)
+    Papa.parse(devicesUrl, {
         download: true,
-        header: false, // We'll handle columns manually since header might be inconsistent
+        header: false,
         skipEmptyLines: true,
-        complete: function(results) {
-            processData(results.data);
-            loadingState.style.display = 'none';
+        complete: function(devicesResults) {
+            const devicesHeartbeats = new Map();
+            const rows = devicesResults.data;
+            let start = 0;
+            
+            if (rows.length > 0 && rows[0][0].toLowerCase().includes('device')) {
+                start = 1;
+            }
+            
+            for (let i = start; i < rows.length; i++) {
+                const row = rows[i];
+                if (row.length >= 6) {
+                    const devId = row[0].trim().toUpperCase();
+                    const lastSeenTime = row[5];
+                    devicesHeartbeats.set(devId, lastSeenTime);
+                }
+            }
+            
+            // Now parse SessionLogs
+            Papa.parse(sessionLogsUrl, {
+                download: true,
+                header: false,
+                skipEmptyLines: true,
+                complete: function(results) {
+                    processData(results.data, devicesHeartbeats);
+                    loadingState.style.display = 'none';
+                },
+                error: function(error) {
+                    console.error("Error fetching session logs:", error);
+                    lastUpdateEl.textContent = "Error fetching data";
+                }
+            });
         },
         error: function(error) {
-            console.error("Error fetching data:", error);
-            lastUpdateEl.textContent = "Error fetching data";
-            // In a real app, maybe show a toast notification here
+            console.error("Error fetching devices data:", error);
+            // Fallback to SessionLogs only if Devices sheet fails
+            Papa.parse(sessionLogsUrl, {
+                download: true,
+                header: false,
+                skipEmptyLines: true,
+                complete: function(results) {
+                    processData(results.data, new Map());
+                    loadingState.style.display = 'none';
+                },
+                error: function(error) {
+                    console.error("Error fetching session logs:", error);
+                    lastUpdateEl.textContent = "Error fetching data";
+                }
+            });
         }
     });
 }
 
-function processData(rows) {
+function parseSheetDate(dateStr) {
+    if (!dateStr) return null;
+    let d = new Date(dateStr);
+    if (!isNaN(d.getTime())) return d;
+    
+    // Handle dd/mm/yyyy hh:mm:ss
+    const parts = dateStr.split(/[\s/:]+/);
+    if (parts.length >= 6) {
+        const day = parseInt(parts[0], 10);
+        const month = parseInt(parts[1], 10) - 1;
+        let year = parseInt(parts[2], 10);
+        if (year > 2400) year -= 543; // Convert Buddhist Era to Gregorian
+        
+        const hour = parseInt(parts[3], 10);
+        const min = parseInt(parts[4], 10);
+        const sec = parseInt(parts[5], 10);
+        
+        d = new Date(year, month, day, hour, min, sec);
+        if (!isNaN(d.getTime())) return d;
+    }
+    return null;
+}
+
+function isDeviceOnline(lastSeenStr) {
+    if (!lastSeenStr) return false;
+    const lastSeenDate = parseSheetDate(lastSeenStr);
+    if (!lastSeenDate) return false;
+    
+    const now = new Date();
+    const diffSec = (now - lastSeenDate) / 1000;
+    return diffSec < 150; // Online if polled in the last 2.5 minutes
+}
+
+function processData(rows, devicesHeartbeats = new Map()) {
     if (!rows || rows.length === 0) return;
     
     machinesData.clear();
@@ -122,14 +200,19 @@ function processData(rows) {
             finalMachineName = deviceMap.get(lookupKey);
         }
         
+        const lastSeenTime = devicesHeartbeats.get(rawMachineName.trim().toUpperCase()) || '';
+        const online = isDeviceOnline(lastSeenTime);
+        
         const log = {
             time: row[0] || '',
             user: row[1] || 'Unknown',
             machineName: finalMachineName,
             machineId: row[3] || '',
+            deviceId: rawMachineName, // Store the raw Computer Name (e.g. TRUE-35)
             action: row[4] || '',
             status: row[5] || '',
-            detail: row[6] || ''
+            detail: row[6] || '',
+            online: online
         };
         
         if (log.machineName) {
@@ -209,7 +292,10 @@ function renderGrid() {
             card.classList.add(statusInfo.class);
         }
         
-        clone.querySelector('.machine-name').textContent = data.machineName;
+        const nameEl = clone.querySelector('.machine-name');
+        if (nameEl) {
+            nameEl.innerHTML = `${data.machineName} <span class="heartbeat-dot ${data.online ? 'online' : 'offline'}" title="${data.online ? 'Online' : 'Offline'}"></span>`;
+        }
         clone.querySelector('.status-badge').textContent = statusInfo.text;
         
         // Always show the username (last known user or current user)
@@ -218,6 +304,34 @@ function renderGrid() {
         clone.querySelector('.last-action-time').textContent = data.time;
         clone.querySelector('.action-detail').textContent = data.detail || 'No details provided';
         clone.querySelector('.action-type').textContent = `Last Action: ${data.action}`;
+        
+        // Setup clear session button
+        const btnClear = clone.querySelector('.btn-card-clear');
+        if (btnClear) {
+            if (statusInfo.text === 'In Use' || statusInfo.text === 'Admin Warning') {
+                btnClear.style.display = 'inline-flex';
+                btnClear.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    clearSession(data.deviceId, data.machineName, data.user);
+                });
+            } else {
+                btnClear.style.display = 'none';
+            }
+        }
+        
+        // Setup remote shutdown button
+        const btnShutdown = clone.querySelector('.btn-card-shutdown');
+        if (btnShutdown) {
+            if (statusInfo.text === 'In Use' || statusInfo.text === 'Admin Warning') {
+                btnShutdown.style.display = 'inline-flex';
+                btnShutdown.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    shutdownMachine(data.deviceId, data.machineName);
+                });
+            } else {
+                btnShutdown.style.display = 'none';
+            }
+        }
         
         machinesGrid.appendChild(clone);
     });
@@ -261,6 +375,126 @@ function updateStats() {
     
     totalMachinesEl.textContent = machinesData.size;
     activeMachinesEl.textContent = activeCount;
+}
+
+function shutdownMachine(deviceId, machineName) {
+    if (!deviceId || deviceId.toUpperCase() === 'UNKNOWN' || deviceId.toUpperCase() === 'SYSTEM') {
+        showToast("ไม่สามารถสั่ง Shutdown อุปกรณ์ระบุตัวตนไม่ได้ครับ", "error");
+        return;
+    }
+    
+    showCustomConfirm(
+        "🚨 ยืนยันการสั่ง Shutdown",
+        `ต้องการสั่ง Shutdown เครื่อง <strong>"${machineName}"</strong> (${deviceId}) ระยะไกลใช่หรือไม่?<br><br><span style="font-size: 0.8rem; color: var(--status-alarm);">เครื่องคอมพิวเตอร์ปลายทางจะปิดตัวลงทันทีที่มีการเชื่อมต่อข้อมูลครับ (ภายใน 60 วินาที)</span>`,
+        true, // isDanger theme
+        () => {
+            const url = `${LOG_SCRIPT_URL}?action=set_command&targetId=${deviceId}&command=shutdown`;
+            
+            fetch(url, { mode: 'no-cors' })
+                .then(() => {
+                    showToast(`ส่งคำสั่ง Shutdown ไปยังเครื่อง "${machineName}" เรียบร้อยแล้ว!`, "success");
+                    setTimeout(() => {
+                        fetchData();
+                    }, 800);
+                })
+                .catch(error => {
+                    console.error("Error setting shutdown command:", error);
+                    showToast("เกิดข้อผิดพลาดในการเชื่อมต่อเพื่อส่งคำสั่ง", "error");
+                });
+        }
+    );
+}
+
+function clearSession(deviceId, machineName, username) {
+    if (!deviceId || deviceId.toUpperCase() === 'UNKNOWN' || deviceId.toUpperCase() === 'SYSTEM') {
+        showToast("ไม่สามารถสั่ง Clear Session อุปกรณ์ระบุตัวตนไม่ได้ครับ", "error");
+        return;
+    }
+    
+    showCustomConfirm(
+        "🔄 ยืนยัน Clear Session",
+        `ยืนยันการสั่ง Clear Session (Force Logout) เครื่อง <strong>"${machineName}"</strong> (${deviceId}) หรือไม่?<br><br>การดำเนินการนี้จะเปลี่ยนสถานะเครื่องบนบอร์ดเป็น Available และบันทึกประวัติ Logout ลง Google Sheets`,
+        false, // normal warning theme
+        () => {
+            const url = `${LOG_SCRIPT_URL}?deviceId=${encodeURIComponent(deviceId)}&username=${encodeURIComponent(username)}&action=Logout&status=OK&detail=Force+logout+by+Admin`;
+            
+            fetch(url, { mode: 'no-cors' })
+                .then(() => {
+                    showToast(`สั่ง Clear Session เครื่อง "${machineName}" สำเร็จ!`, "success");
+                    setTimeout(() => {
+                        fetchData(); // Refresh page data
+                    }, 800);
+                })
+                .catch(error => {
+                    console.error("Error clearing session:", error);
+                    showToast("เกิดข้อผิดพลาดในการเชื่อมต่อเพื่อ Clear Session", "error");
+                });
+        }
+    );
+}
+
+// Custom Non-blocking Dialog Handlers
+function showCustomConfirm(title, message, isDanger, onConfirm) {
+    const modal = document.getElementById('custom-modal');
+    const modalTitle = document.getElementById('modal-title');
+    const modalMessage = document.getElementById('modal-message');
+    const btnCancel = document.getElementById('modal-btn-cancel');
+    const btnConfirm = document.getElementById('modal-btn-confirm');
+    const icon = modal.querySelector('.modal-icon');
+    
+    modalTitle.textContent = title;
+    modalMessage.innerHTML = message;
+    
+    // Set theme (Danger vs Warning)
+    if (isDanger) {
+        icon.className = 'fa-solid fa-triangle-exclamation modal-icon danger';
+        btnConfirm.className = 'btn-modal-confirm danger';
+    } else {
+        icon.className = 'fa-solid fa-circle-question modal-icon';
+        btnConfirm.className = 'btn-modal-confirm';
+    }
+    
+    // Show modal
+    modal.style.display = 'flex';
+    setTimeout(() => modal.classList.add('active'), 10);
+    
+    // Handlers
+    const close = () => {
+        modal.classList.remove('active');
+        setTimeout(() => modal.style.display = 'none', 300);
+    };
+    
+    btnCancel.onclick = () => {
+        close();
+    };
+    
+    btnConfirm.onclick = () => {
+        close();
+        onConfirm();
+    };
+}
+
+function showToast(message, type = 'success') {
+    const container = document.getElementById('toast-container');
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    
+    const iconClass = type === 'success' ? 'fa-solid fa-circle-check' : 'fa-solid fa-circle-xmark';
+    toast.innerHTML = `
+        <i class="${iconClass} toast-icon"></i>
+        <span>${message}</span>
+    `;
+    
+    container.appendChild(toast);
+    
+    // Trigger animation
+    setTimeout(() => toast.classList.add('show'), 10);
+    
+    // Remove toast after 3.5 seconds
+    setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => toast.remove(), 300);
+    }, 3500);
 }
 
 // Start app

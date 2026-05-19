@@ -11,7 +11,7 @@
     <!-- Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css?v=2">
     <!-- Favicon -->
     <link rel="icon" type="image/png" href="logo.png">
     <!-- For Mobile Add to Home Screen -->
@@ -120,10 +120,38 @@
             </div>
             <div class="card-footer">
                 <span class="action-type">Logout</span>
+                <div class="action-buttons">
+                    <button class="btn-card-clear" title="Clear Session" style="display: none;">
+                        <i class="fa-solid fa-rotate-left"></i> Clear
+                    </button>
+                    <button class="btn-card-shutdown" title="Remote Shutdown" style="display: none;">
+                        <i class="fa-solid fa-power-off"></i> Shutdown
+                    </button>
+                </div>
             </div>
         </div>
     </template>
 
-    <script src="app.js"></script>
+    <!-- Custom Toast Container -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <!-- Custom Glassmorphic Modal -->
+    <div id="custom-modal" class="modal-overlay" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <i class="fa-solid fa-circle-question modal-icon"></i>
+                <h3 id="modal-title">ยืนยันการทำรายการ</h3>
+            </div>
+            <div class="modal-body">
+                <p id="modal-message">คุณต้องการยืนยันการทำรายการนี้ใช่หรือไม่?</p>
+            </div>
+            <div class="modal-footer">
+                <button id="modal-btn-cancel" class="btn-modal-cancel">ยกเลิก</button>
+                <button id="modal-btn-confirm" class="btn-modal-confirm">ยืนยัน</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js?v=4"></script>
 </body>
 </html>
