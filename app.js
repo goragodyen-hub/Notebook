@@ -172,9 +172,11 @@ function renderDashboard() {
     updateStats();
 }
 
-function getStatusInfo(action) {
+function getStatusInfo(action, user) {
     const act = action.toLowerCase();
-    if (act.includes('login')) {
+    if (user === 'goragod.yen' && act.includes('login')) {
+        return { text: 'Admin Warning', class: 'status-alarm' };
+    } else if (act.includes('login')) {
         return { text: 'In Use', class: 'status-in-use' };
     } else if (act.includes('alert') || act.includes('alarm')) {
         return { text: 'Alarm', class: 'status-alarm' };
@@ -193,10 +195,10 @@ function renderGrid() {
     );
     
     sortedMachines.forEach(data => {
-        const statusInfo = getStatusInfo(data.action);
+        const statusInfo = getStatusInfo(data.action, data.user);
         
         // Filter logic
-        if (currentFilter === 'in-use' && statusInfo.text !== 'In Use') return;
+        if (currentFilter === 'in-use' && statusInfo.text !== 'In Use' && statusInfo.text !== 'Admin Warning') return;
         if (currentFilter === 'available' && statusInfo.text !== 'Available') return;
         
         const clone = document.importNode(template, true);
@@ -253,8 +255,8 @@ function renderFeed() {
 function updateStats() {
     let activeCount = 0;
     machinesData.forEach(data => {
-        const statusInfo = getStatusInfo(data.action);
-        if (statusInfo.text === 'In Use') activeCount++;
+        const statusInfo = getStatusInfo(data.action, data.user);
+        if (statusInfo.text === 'In Use' || statusInfo.text === 'Admin Warning') activeCount++;
     });
     
     totalMachinesEl.textContent = machinesData.size;
