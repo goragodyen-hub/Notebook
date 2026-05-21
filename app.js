@@ -322,7 +322,7 @@ function renderGrid() {
         // Setup remote shutdown button
         const btnShutdown = clone.querySelector('.btn-card-shutdown');
         if (btnShutdown) {
-            if (statusInfo.text === 'In Use' || statusInfo.text === 'Admin Warning') {
+            if (statusInfo.text === 'In Use' || statusInfo.text === 'Admin Warning' || data.online) {
                 btnShutdown.style.display = 'inline-flex';
                 btnShutdown.addEventListener('click', (e) => {
                     e.stopPropagation();
