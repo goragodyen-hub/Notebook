@@ -2,8 +2,23 @@
 <html lang="th">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>ระบบติดตามเครื่องโน๊ตบุ๊ค วิชาการ</title>
+    <meta name="description" content="Real-time Device Monitoring System - ระบบติดตามสถานะเครื่องโน๊ตบุ๊คแบบเรียลไทม์">
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="manifest.json">
+    
+    <!-- PWA Meta Tags -->
+    <meta name="theme-color" content="#0f172a">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Kiosk Monitor">
+    <meta name="application-name" content="Kiosk Monitor">
+    <meta name="msapplication-TileColor" content="#0f172a">
+    <meta name="msapplication-TileImage" content="icons/icon-144x144.png">
+    
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <!-- PapaParse for CSV parsing -->
@@ -11,12 +26,16 @@
     <!-- Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
-    <link rel="stylesheet" href="style.css?v=2">
+    <link rel="stylesheet" href="style.css?v=3">
     <!-- Favicon -->
-    <link rel="icon" type="image/png" href="logo.png">
-    <!-- For Mobile Add to Home Screen -->
-    <link rel="apple-touch-icon" href="logo.png">
-    <link rel="icon" sizes="192x192" href="logo.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="logo.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="logo.png">
+    <!-- Apple Touch Icons -->
+    <link rel="apple-touch-icon" href="icons/icon-152x152.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="icons/icon-192x192.png">
+    <!-- PWA Icons -->
+    <link rel="icon" sizes="192x192" href="icons/icon-192x192.png">
+    <link rel="icon" sizes="512x512" href="icons/icon-512x512.png">
 </head>
 <body>
     <div class="app-container">
@@ -153,5 +172,98 @@
     </div>
 
     <script src="app.js?v=5"></script>
+
+    <!-- PWA Service Worker Registration -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then((registration) => {
+                        console.log('[PWA] Service Worker registered with scope:', registration.scope);
+                        
+                        // Check for updates
+                        registration.addEventListener('updatefound', () => {
+                            const newWorker = registration.installing;
+                            newWorker.addEventListener('statechange', () => {
+                                if (newWorker.state === 'activated') {
+                                    // Show update notification
+                                    if (typeof showToast === 'function') {
+                                        showToast('แอปอัปเดตเวอร์ชั่นใหม่แล้ว!', 'success');
+                                    }
+                                }
+                            });
+                        });
+                    })
+                    .catch((error) => {
+                        console.error('[PWA] Service Worker registration failed:', error);
+                    });
+            });
+        }
+    </script>
+
+    <!-- PWA Install Prompt -->
+    <div id="pwa-install-banner" class="pwa-install-banner" style="display: none;">
+        <div class="pwa-install-content">
+            <i class="fa-solid fa-download pwa-install-icon"></i>
+            <div class="pwa-install-text">
+                <strong>ติดตั้งแอป</strong>
+                <span>เพิ่ม Kiosk Monitor ไว้ที่หน้าจอหลัก</span>
+            </div>
+        </div>
+        <div class="pwa-install-actions">
+            <button id="pwa-install-btn" class="pwa-btn-install">ติดตั้ง</button>
+            <button id="pwa-dismiss-btn" class="pwa-btn-dismiss">ไม่ตอนนี้</button>
+        </div>
+    </div>
+
+    <script>
+        // PWA Install prompt handler
+        let deferredPrompt;
+        const installBanner = document.getElementById('pwa-install-banner');
+        const installBtn = document.getElementById('pwa-install-btn');
+        const dismissBtn = document.getElementById('pwa-dismiss-btn');
+
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            
+            // Check if user dismissed before
+            const dismissed = localStorage.getItem('pwa-install-dismissed');
+            if (!dismissed) {
+                installBanner.style.display = 'flex';
+                setTimeout(() => installBanner.classList.add('show'), 100);
+            }
+        });
+
+        if (installBtn) {
+            installBtn.addEventListener('click', async () => {
+                if (deferredPrompt) {
+                    deferredPrompt.prompt();
+                    const { outcome } = await deferredPrompt.userChoice;
+                    console.log('[PWA] Install outcome:', outcome);
+                    deferredPrompt = null;
+                }
+                installBanner.classList.remove('show');
+                setTimeout(() => installBanner.style.display = 'none', 300);
+            });
+        }
+
+        if (dismissBtn) {
+            dismissBtn.addEventListener('click', () => {
+                installBanner.classList.remove('show');
+                setTimeout(() => installBanner.style.display = 'none', 300);
+                localStorage.setItem('pwa-install-dismissed', 'true');
+            });
+        }
+
+        window.addEventListener('appinstalled', () => {
+            console.log('[PWA] App installed successfully!');
+            installBanner.classList.remove('show');
+            setTimeout(() => installBanner.style.display = 'none', 300);
+            if (typeof showToast === 'function') {
+                showToast('ติดตั้งแอปสำเร็จ! 🎉', 'success');
+            }
+        });
+    </script>
 </body>
 </html>

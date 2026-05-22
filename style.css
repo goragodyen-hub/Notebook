@@ -799,3 +799,126 @@ h1 {
 .toast-error .toast-icon {
     color: var(--status-alarm);
 }
+
+/* PWA Install Banner */
+.pwa-install-banner {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 1400;
+    background: rgba(30, 41, 59, 0.95);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-top: 1px solid var(--panel-border);
+    padding: 16px 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    transform: translateY(100%);
+    opacity: 0;
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    box-shadow: 0 -4px 30px rgba(0, 0, 0, 0.3);
+}
+
+.pwa-install-banner.show {
+    transform: translateY(0);
+    opacity: 1;
+}
+
+.pwa-install-content {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.pwa-install-icon {
+    font-size: 1.6rem;
+    color: var(--accent-blue);
+    background: rgba(59, 130, 246, 0.15);
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.pwa-install-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.pwa-install-text strong {
+    font-size: 0.95rem;
+    color: var(--text-primary);
+}
+
+.pwa-install-text span {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+
+.pwa-install-actions {
+    display: flex;
+    gap: 10px;
+    flex-shrink: 0;
+}
+
+.pwa-btn-install {
+    background: var(--accent-blue);
+    color: #fff;
+    border: none;
+    padding: 10px 24px;
+    border-radius: 10px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 4px 15px var(--accent-blue-glow);
+}
+
+.pwa-btn-install:hover {
+    background: #2563eb;
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px var(--accent-blue-glow);
+}
+
+.pwa-btn-install:active {
+    transform: translateY(0);
+}
+
+.pwa-btn-dismiss {
+    background: transparent;
+    color: var(--text-secondary);
+    border: 1px solid var(--panel-border);
+    padding: 10px 16px;
+    border-radius: 10px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.pwa-btn-dismiss:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text-primary);
+}
+
+@media (max-width: 480px) {
+    .pwa-install-banner {
+        flex-direction: column;
+        gap: 12px;
+        padding: 20px;
+    }
+    .pwa-install-actions {
+        width: 100%;
+    }
+    .pwa-btn-install, .pwa-btn-dismiss {
+        flex: 1;
+        text-align: center;
+    }
+}
