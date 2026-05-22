@@ -13,7 +13,8 @@ const LOG_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwTHEnz86gbbqxqk
 let machinesData = new Map(); // Key: machineName, Value: latestLogObj
 let recentLogs = [];
 let currentFilter = 'all';
-
+let totalUsageData = new Map(); // Key: machineName, Value: total usage days
+var consecutiveUsageData = new Map(); // Key: machineName, Value: {user, days}
 // DOM Elements
 const loadingState = document.getElementById('loading-state');
 const machinesGrid = document.getElementById('machines-grid');
@@ -220,6 +221,9 @@ function processData(rows, devicesHeartbeats = new Map()) {
         }
     }
     
+    // Calculate consecutive usage days per machine+user
+    calculateConsecutiveUsage(rows, startIndex, deviceMap);
+    
     // Get recent logs for the feed (reverse order, max 20)
     recentLogs = [];
     for (let i = rows.length - 1; i >= startIndex; i--) {
@@ -291,6 +295,16 @@ function renderGrid() {
         if (statusInfo.class) {
             card.classList.add(statusInfo.class);
         }
+        // Add click listener to show consecutive usage alert if available
+        card.addEventListener('click', () => {
+            const usageInfo = consecutiveUsageData.get(data.machineName);
+            if (usageInfo) {
+                // Show an alert with usage days
+                alert(`${usageInfo.user} ใช้เครื่อง ${data.machineName} ติดต่อกัน ${usageInfo.days} วัน`);
+            } else {
+                alert(`ไม่มีข้อมูลการใช้งานต่อเนื่องสำหรับ ${data.machineName}`);
+            }
+        });
         
         const nameEl = clone.querySelector('.machine-name');
         if (nameEl) {
@@ -304,6 +318,18 @@ function renderGrid() {
         clone.querySelector('.last-action-time').textContent = data.time;
         clone.querySelector('.action-detail').textContent = data.detail || 'No details provided';
         clone.querySelector('.action-type').textContent = `Last Action: ${data.action}`;
+        
+        // Show consecutive usage warning if > 1 day
+        const usageInfo = consecutiveUsageData.get(data.machineName);
+        if (usageInfo && usageInfo.days > 1) {
+            const warningEl = document.createElement('div');
+            warningEl.className = 'consecutive-usage-warning';
+            warningEl.innerHTML = `
+                <i class="fa-solid fa-fire"></i>
+                <span><strong>${usageInfo.user}</strong> ใช้เครื่องนี้ติดต่อกัน <strong>${usageInfo.days} วัน</strong></span>
+            `;
+            card.querySelector('.card-body').appendChild(warningEl);
+        }
         
         // Setup clear session button
         const btnClear = clone.querySelector('.btn-card-clear');
@@ -495,6 +521,113 @@ function showToast(message, type = 'success') {
         toast.classList.remove('show');
         setTimeout(() => toast.remove(), 300);
     }, 3500);
+}
+
+/**
+ * Calculate how many consecutive days (including today) the current user
+ * of each machine has been logging in on that same machine.
+ * Only Login actions are counted. We look at distinct calendar dates.
+ */
+function calculateConsecutiveUsage(rows, startIndex, deviceMap) {
+    consecutiveUsageData.clear();
+    
+    // Build a map: machineName -> { user -> Set of date strings }
+    const machineUserDates = new Map();
+    
+    for (let i = startIndex; i < rows.length; i++) {
+        const row = rows[i];
+        if (row.length < 5) continue;
+        
+        const action = (row[4] || '').toLowerCase();
+        if (!action.includes('login')) continue;
+        
+        const timeStr = row[0] || '';
+        const user = row[1] || 'Unknown';
+        let rawMachineName = row[2] || 'Unknown-PC';
+        let finalMachineName = rawMachineName;
+        const lookupKey = rawMachineName.trim().toUpperCase();
+        if (deviceMap.has(lookupKey)) {
+            finalMachineName = deviceMap.get(lookupKey);
+        }
+        
+        const parsedDate = parseSheetDate(timeStr);
+        if (!parsedDate) continue;
+        
+        // Create a date-only string (YYYY-MM-DD) for grouping by day
+        const dateKey = `${parsedDate.getFullYear()}-${String(parsedDate.getMonth() + 1).padStart(2, '0')}-${String(parsedDate.getDate()).padStart(2, '0')}`;
+        
+        if (!machineUserDates.has(finalMachineName)) {
+            machineUserDates.set(finalMachineName, new Map());
+        }
+        const userMap = machineUserDates.get(finalMachineName);
+        if (!userMap.has(user)) {
+            userMap.set(user, new Set());
+        }
+        userMap.get(user).add(dateKey);
+    }
+    
+    // For each machine, find the current user (from machinesData) and check their streak
+    machinesData.forEach((data, machineName) => {
+        const statusInfo = getStatusInfo(data.action, data.user);
+        // Only care about machines currently in use
+        if (statusInfo.text !== 'In Use' && statusInfo.text !== 'Admin Warning') return;
+        
+        const userMap = machineUserDates.get(machineName);
+        if (!userMap) return;
+        
+        const currentUser = data.user;
+        const dates = userMap.get(currentUser);
+        if (!dates || dates.size === 0) return;
+        
+        // Sort dates descending
+        const sortedDates = Array.from(dates).sort().reverse();
+        
+
+        // Calculate total usage days (unique dates across all users for this machine)
+        const userMaps = machineUserDates.get(machineName);
+        if (userMaps) {
+            const allDates = new Set();
+            userMaps.forEach(dateSet => {
+                dateSet.forEach(d => allDates.add(d));
+            });
+            totalUsageData.set(machineName, { days: allDates.size });
+        }
+        const today = new Date();
+        const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+        
+        // Start from today or the most recent date in the data
+        let startDate;
+        let consecutiveDays = 1;
+        if (sortedDates[0] === todayKey) {
+            startDate = today;
+        } else {
+            // Use the most recent date
+            startDate = new Date(sortedDates[0] + 'T00:00:00');
+        }
+        
+        // Walk backwards from the start date
+        for (let d = 1; d < sortedDates.length; d++) {
+            const prevDay = new Date(startDate);
+            prevDay.setDate(prevDay.getDate() - d);
+            const prevKey = `${prevDay.getFullYear()}-${String(prevDay.getMonth() + 1).padStart(2, '0')}-${String(prevDay.getDate()).padStart(2, '0')}`;
+            
+            if (dates.has(prevKey)) {
+                consecutiveDays++;
+            } else {
+                break;
+            }
+        }
+        
+            if (consecutiveDays > 1) {
+                consecutiveUsageData.set(machineName, {
+                    user: currentUser,
+                    days: consecutiveDays
+                });
+                if (typeof showToast === 'function') {
+                    showToast(`⚠️ ${currentUser} ใช้เครื่อง ${machineName} ติดต่อกัน ${consecutiveDays} วัน`, 'warning');
+                }
+            }
+    });
 }
 
 // Start app
